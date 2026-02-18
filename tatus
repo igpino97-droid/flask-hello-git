@@ -1,0 +1,140 @@
+[33mcommit b83e067afcbece67a581670769405244739df1d4[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: Ignacio Pino <igpino97@gmail.com>
+Date:   Mon Feb 16 00:59:41 2026 +0000
+
+    feat: initial k8s deployment with ingress
+
+[1mdiff --git a/Dockerfile b/Dockerfile[m
+[1mnew file mode 100644[m
+[1mindex 0000000..b9df468[m
+[1m--- /dev/null[m
+[1m+++ b/Dockerfile[m
+[36m@@ -0,0 +1,12 @@[m
+[32m+[m[32mFROM python:3.11-slim[m
+[32m+[m
+[32m+[m[32mWORKDIR /app[m
+[32m+[m
+[32m+[m[32mCOPY requirements.txt .[m
+[32m+[m[32mRUN pip install --no-cache-dir -r requirements.txt[m
+[32m+[m
+[32m+[m[32mCOPY . .[m
+[32m+[m
+[32m+[m[32mEXPOSE 5000[m
+[32m+[m
+[32m+[m[32mCMD ["python", "app.py"][m
+\ No newline at end of file[m
+[1mdiff --git a/app.py b/app.py[m
+[1mindex 1e86578..bfb1d93 100644[m
+[1m--- a/app.py[m
+[1m+++ b/app.py[m
+[36m@@ -1,9 +1,11 @@[m
+ from flask import Flask[m
+[32m+[m
+ app = Flask(__name__)[m
+ [m
+ @app.route("/")[m
+ def hello():[m
+[31m-    return "Hello World probando probando"[m
+[32m+[m[32m    return "Hello World desde Flask y Git 🚀"[m
+ [m
+ if __name__ == "__main__":[m
+     app.run(host="0.0.0.0", port=5000)[m
+[41m+[m
+[1mdiff --git a/deployment.yaml b/deployment.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..b8a2176[m
+[1m--- /dev/null[m
+[1m+++ b/deployment.yaml[m
+[36m@@ -0,0 +1,20 @@[m
+[32m+[m[32mapiVersion: apps/v1[m
+[32m+[m[32mkind: Deployment[m
+[32m+[m[32mmetadata:[m
+[32m+[m[32m  name: flask-hello[m
+[32m+[m[32mspec:[m
+[32m+[m[32m  replicas: 1[m
+[32m+[m[32m  selector:[m
+[32m+[m[32m    matchLabels:[m
+[32m+[m[32m      app: flask-hello[m
+[32m+[m[32m  template:[m
+[32m+[m[32m    metadata:[m
+[32m+[m[32m      labels:[m
+[32m+[m[32m        app: flask-hello[m
+[32m+[m[32m    spec:[m
+[32m+[m[32m      containers:[m
+[32m+[m[32m      - name: flask-hello[m
+[32m+[m[32m        image: flask-hello:1.0[m
+[32m+[m[32m        imagePullPolicy: Never[m
+[32m+[m[32m        ports:[m
+[32m+[m[32m        - containerPort: 5000[m
+[1mdiff --git a/dockerignore.txt b/dockerignore.txt[m
+[1mnew file mode 100644[m
+[1mindex 0000000..9612b7a[m
+[1m--- /dev/null[m
+[1m+++ b/dockerignore.txt[m
+[36m@@ -0,0 +1,3 @@[m
+[32m+[m[32mvenv[m
+[32m+[m[32m__pycache__[m
+[32m+[m[32m.git[m
+\ No newline at end of file[m
+[1mdiff --git a/ingress.yaml b/ingress.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..ded35cb[m
+[1m--- /dev/null[m
+[1m+++ b/ingress.yaml[m
+[36m@@ -0,0 +1,17 @@[m
+[32m+[m[32mapiVersion: networking.k8s.io/v1[m
+[32m+[m[32mkind: Ingress[m
+[32m+[m[32mmetadata:[m
+[32m+[m[32m  name: flask-hello[m
+[32m+[m[32mspec:[m
+[32m+[m[32m  ingressClassName: nginx[m
+[32m+[m[32m  rules:[m
+[32m+[m[32m  - host: flask.local[m
+[32m+[m[32m    http:[m
+[32m+[m[32m      paths:[m
+[32m+[m[32m      - path: /[m
+[32m+[m[32m        pathType: Prefix[m
+[32m+[m[32m        backend:[m
+[32m+[m[32m          service:[m
+[32m+[m[32m            name: flask-hello[m
+[32m+[m[32m            port:[m
+[32m+[m[32m              number: 80[m
+[1mdiff --git a/kind-config.yaml b/kind-config.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..b871335[m
+[1m--- /dev/null[m
+[1m+++ b/kind-config.yaml[m
+[36m@@ -0,0 +1,9 @@[m
+[32m+[m[32mkind: Cluster[m
+[32m+[m[32mapiVersion: kind.x-k8s.io/v1alpha4[m
+[32m+[m[32mnodes:[m
+[32m+[m[32m- role: control-plane[m
+[32m+[m[32m  extraPortMappings:[m
+[32m+[m[32m  - containerPort: 80[m
+[32m+[m[32m    hostPort: 80[m
+[32m+[m[32m    protocol: TCP[m
+[32m+[m
+[1mdiff --git a/requirements.txt b/requirements.txt[m
+[1mindex e69de29..8ab6294 100644[m
+[1m--- a/requirements.txt[m
+[1m+++ b/requirements.txt[m
+[36m@@ -0,0 +1 @@[m
+[32m+[m[32mflask[m
+\ No newline at end of file[m
+[1mdiff --git a/service.yaml b/service.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..78724b9[m
+[1m--- /dev/null[m
+[1m+++ b/service.yaml[m
+[36m@@ -0,0 +1,11 @@[m
+[32m+[m[32mapiVersion: v1[m
+[32m+[m[32mkind: Service[m
+[32m+[m[32mmetadata:[m
+[32m+[m[32m  name: flask-hello[m
+[32m+[m[32mspec:[m
+[32m+[m[32m  selector:[m
+[32m+[m[32m    app: flask-hello[m
+[32m+[m[32m  ports:[m
+[32m+[m[32m    - port: 80[m
+[32m+[m[32m      targetPort: 5000[m
+[32m+[m
