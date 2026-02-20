@@ -13,6 +13,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Extract Git SHA
+        id: vars
+        run: echo "TAG=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -24,4 +28,6 @@ jobs:
         with:
           context: .
           push: true
-          tags: igpino97/flask-hello:latest
+          tags: |
+            igpino97/flask-hello:${{ steps.vars.outputs.TAG }}
+            igpino97/flask-hello:latest
