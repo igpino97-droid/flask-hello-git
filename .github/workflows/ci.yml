@@ -1,13 +1,17 @@
-name: CI - Build and Push Docker Image
+name: CI/CD Pipeline
 
 on:
   push:
     branches:
       - main
+      - staging
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+
+    outputs:
+      tag: ${{ steps.vars.outputs.TAG }}
 
     steps:
       - name: Checkout repository
@@ -31,3 +35,25 @@ jobs:
           tags: |
             igpino97/flask-hello:${{ steps.vars.outputs.TAG }}
             igpino97/flask-hello:latest
+
+  deploy-staging:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/staging'
+
+    steps:
+      - name: Deploy to staging (simulation)
+        run: |
+          echo "Would deploy image: igpino97/flask-hello:${{ needs.build-and-push.outputs.tag }}"
+          echo "kubectl set image deployment/flask-hello flask-hello=igpino97/flask-hello:${{ needs.build-and-push.outputs.tag }} -n staging"
+
+  deploy-production:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Deploy to production (simulation)
+        run: |
+          echo "Would deploy image: igpino97/flask-hello:${{ needs.build-and-push.outputs.tag }}"
+          echo "kubectl set image deployment/flask-hello flask-hello=igpino97/flask-hello:${{ needs.build-and-push.outputs.tag }} -n production"
