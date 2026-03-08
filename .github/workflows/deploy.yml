@@ -1,0 +1,56 @@
+name: Build and Deploy to GKE
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: flask-k8s-cicd-489601
+  GAR_LOCATION: us-central1
+  REPOSITORY: flask-repo
+  CLUSTER_NAME: flask-cluster
+  CLUSTER_LOCATION: us-central1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: projects/503696509006/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+        service_account: github-cicd@flask-k8s-cicd-489601.iam.gserviceaccount.com
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Configure Docker
+      run: gcloud auth configure-docker $GAR_LOCATION-docker.pkg.dev
+
+    - name: Build Docker image
+      run: |
+        docker build -t $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/flask-app:$GITHUB_SHA .
+
+    - name: Push Docker image
+      run: |
+        docker push $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/flask-app:$GITHUB_SHA
+
+    - name: Get GKE credentials
+      run: |
+        gcloud container clusters get-credentials $CLUSTER_NAME \
+        --region $CLUSTER_LOCATION \
+        --project $PROJECT_ID
+
+    - name: Deploy to GKE
+      run: |
+        kubectl create deployment flask-app --image=$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/flask-app:$GITHUB_SHA --dry-run=client -o yaml | kubectl apply -f -
+        kubectl expose deployment flask-app --type=LoadBalancer --port 80 --target-port 5000 --dry-run=client -o yaml | kubectl apply -f -
