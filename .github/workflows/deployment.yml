@@ -15,13 +15,14 @@ env:
   REPOSITORY: flask-repo
   CLUSTER_NAME: flask-cluster
   CLUSTER_LOCATION: us-central1
+  IMAGE_NAME: flask-app
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
+    - name: Checkout repository
       uses: actions/checkout@v4
 
     - name: Authenticate to Google Cloud
@@ -30,15 +31,29 @@ jobs:
         workload_identity_provider: projects/863699223840/locations/global/workloadIdentityPools/github-pool/providers/github-provider
         service_account: github-cicd@flask-k8s-cicd-489601.iam.gserviceaccount.com
 
-    - name: Set up Cloud SDK
+    - name: Setup Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
 
     - name: Install GKE auth plugin
       run: |
-       gcloud components install gke-gcloud-auth-plugin --quiet
+        gcloud components install gke-gcloud-auth-plugin --quiet
 
-    - name: Configure Docker
-      run: gcloud auth configure-docker $GAR_LOCATION-docker.pkg.dev
+    - name: Configure Docker authentication
+      run: |
+        gcloud auth configure-docker $GAR_LOCATION-docker.pkg.dev --quiet
+
+    # BUILD IMAGE
+    - name: Build Docker image
+      run: |
+        docker build -t $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:$GITHUB_SHA .
+        docker tag $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:$GITHUB_SHA \
+                   $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
+
+    # PUSH IMAGE
+    - name: Push Docker images
+      run: |
+        docker push $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:$GITHUB_SHA
+        docker push $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
 
     - name: Get GKE credentials
       run: |
@@ -46,7 +61,17 @@ jobs:
         --region $CLUSTER_LOCATION \
         --project $PROJECT_ID
 
+    # DEPLOY
     - name: Deploy to GKE
       run: |
-        kubectl create deployment flask-app --image=$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/flask-app:$GITHUB_SHA --dry-run=client -o yaml | kubectl apply -f -
-        kubectl expose deployment flask-app --type=LoadBalancer --port 80 --target-port 5000 --dry-run=client -o yaml | kubectl apply -f -
+        kubectl get deployment $IMAGE_NAME || \
+        kubectl create deployment $IMAGE_NAME --image=$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
+        
+        kubectl set image deployment/$IMAGE_NAME \
+        $IMAGE_NAME=$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:$GITHUB_SHA
+
+        kubectl get service $IMAGE_NAME || \
+        kubectl expose deployment $IMAGE_NAME \
+        --type=LoadBalancer \
+        --port 80 \
+        --target-port 5000
