@@ -33,16 +33,12 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
 
+    - name: Install GKE auth plugin
+      run: |
+       gcloud components install gke-gcloud-auth-plugin --quiet
+
     - name: Configure Docker
       run: gcloud auth configure-docker $GAR_LOCATION-docker.pkg.dev
-
-    - name: Build Docker image
-      run: |
-        docker build -t $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/flask-app:$GITHUB_SHA .
-
-    - name: Push Docker image
-      run: |
-        docker push $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/flask-app:$GITHUB_SHA
 
     - name: Get GKE credentials
       run: |
