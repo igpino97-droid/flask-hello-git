@@ -63,17 +63,17 @@ jobs:
 
     # DEPLOY
     - name: Deploy to GKE
-  run: |
-    kubectl get deployment $IMAGE_NAME || \
-    kubectl create deployment $IMAGE_NAME --image=$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
+      run: |
+        kubectl get deployment $IMAGE_NAME || \
+        kubectl create deployment $IMAGE_NAME --image=$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
 
-    kubectl set image deployment/$IMAGE_NAME \
-    $IMAGE_NAME=$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:$GITHUB_SHA
+        kubectl set image deployment/$IMAGE_NAME \
+        $IMAGE_NAME=$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:$GITHUB_SHA
 
-    kubectl rollout status deployment/$IMAGE_NAME
+        kubectl rollout status deployment/$IMAGE_NAME
 
-    kubectl get service $IMAGE_NAME || \
-    kubectl expose deployment $IMAGE_NAME \
-    --type=LoadBalancer \
-    --port 80 \
-    --target-port 5000
+        kubectl get service $IMAGE_NAME || \
+        kubectl expose deployment $IMAGE_NAME \
+        --type=LoadBalancer \
+        --port 80 \
+        --target-port 5000
