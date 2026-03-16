@@ -11,10 +11,10 @@ permissions:
 
 env:
   PROJECT_ID: flask-k8s-cicd-489601
-  GAR_LOCATION: us-central1
+  GAR_LOCATION: us-east1
   REPOSITORY: flask-repo
   CLUSTER_NAME: flask-cluster
-  CLUSTER_LOCATION: us-central1
+  CLUSTER_LOCATION: us-east1
   IMAGE_NAME: flask-app
 
 jobs:
