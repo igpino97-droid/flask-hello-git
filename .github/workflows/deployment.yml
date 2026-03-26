@@ -61,19 +61,18 @@ jobs:
         --region $CLUSTER_LOCATION \
         --project $PROJECT_ID
 
-    # DEPLOY
+    # DEPLOY (PRO VERSION)
     - name: Deploy to GKE
       run: |
-        kubectl get deployment $IMAGE_NAME || \
-        kubectl create deployment $IMAGE_NAME --image=$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
+        IMAGE="$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:$GITHUB_SHA"
 
-        kubectl set image deployment/$IMAGE_NAME \
-        $IMAGE_NAME=$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:$GITHUB_SHA
+        echo "Using image: $IMAGE"
 
+      # Reemplazar imagen en deployment
+        sed -i "s|IMAGE_PLACEHOLDER|$IMAGE|g" k8s/deployment.yml
+
+      # Aplicar manifests Kubernetes
+        kubectl apply -f k8s/
+
+      # Esperar rollout
         kubectl rollout status deployment/$IMAGE_NAME
-
-        kubectl get service $IMAGE_NAME || \
-        kubectl expose deployment $IMAGE_NAME \
-        --type=LoadBalancer \
-        --port 80 \
-        --target-port 5000
