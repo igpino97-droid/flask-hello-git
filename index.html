@@ -2,42 +2,96 @@
 <html>
 <head>
   <title>Ignacio Pino - DevOps Engineer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
-      font-family: Arial;
-      margin: 40px;
+      margin: 0;
+      font-family: Arial, sans-serif;
       background: #0f172a;
-      color: white;
+      color: #e2e8f0;
     }
-    h1 { color: #38bdf8; }
-    .section { margin-top: 40px; }
-    a { color: #38bdf8; }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      padding: 40px;
+    }
+
+    h1 {
+      color: #38bdf8;
+      font-size: 42px;
+      margin-bottom: 0;
+    }
+
+    h2 {
+      color: #38bdf8;
+      margin-top: 40px;
+    }
+
+    p {
+      line-height: 1.6;
+    }
+
+    .card {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+
+    a {
+      color: #38bdf8;
+      text-decoration: none;
+    }
+
+    .buttons a {
+      display: inline-block;
+      margin-right: 10px;
+      padding: 10px 15px;
+      background: #38bdf8;
+      color: black;
+      border-radius: 5px;
+    }
   </style>
 </head>
 
 <body>
+  <div class="container">
 
-<h1>Ignacio Pino</h1>
-<h2>DevOps Engineer</h2>
+    <h1>Ignacio Pino</h1>
+    <p>DevOps Engineer</p>
 
-<p>I build scalable applications using Kubernetes, CI/CD and cloud infrastructure.</p>
+    <p>
+      I build scalable applications using Kubernetes, CI/CD pipelines and cloud infrastructure.
+    </p>
 
-<div class="section">
-  <h2>Projects</h2>
-  <h3>Flask App on Kubernetes</h3>
-  <p>Deployed on GKE with CI/CD and Terraform.</p>
-  <a href="#">View Project</a>
-</div>
+    <div class="buttons">
+      <a href="#projects">View Projects</a>
+      <a href="#">Download CV</a>
+    </div>
 
-<div class="section">
-  <h2>Skills</h2>
-  <p>Docker | Kubernetes | Terraform | GCP | GitHub Actions</p>
-</div>
+    <h2 id="projects">🚀 Projects</h2>
 
-<div class="section">
-  <h2>Contact</h2>
-  <p>Email: your@email.com</p>
-</div>
+    <div class="card">
+      <h3>Flask App on Kubernetes</h3>
+      <p>
+        Deployed a Flask application on GKE using CI/CD with GitHub Actions and Terraform.
+      </p>
+      <p><strong>Stack:</strong> Docker, Kubernetes, Terraform, GCP</p>
+      <a href="#">View GitHub</a>
+    </div>
 
+    <h2>🧠 Skills</h2>
+    <div class="card">
+      <p>Docker | Kubernetes | Terraform | GCP | GitHub Actions</p>
+    </div>
+
+    <h2>📬 Contact</h2>
+    <div class="card">
+      <p>Email: your@email.com</p>
+      <p>GitHub: <a href="#">your-github</a></p>
+    </div>
+
+  </div>
 </body>
 </html>
