@@ -1,49 +1,10 @@
-name: CI/CD to GKE
-
-on:
-  push:
-    branches:
-      - main
-      - staging
-
-permissions:
-  contents: read
-  id-token: write
-
-env:
-  PROJECT_ID: flask-k8s-cicd-489601
-  GAR_LOCATION: us-east1
-  REPOSITORY: flask-repo
-  CLUSTER_NAME: flask-cluster
-  CLUSTER_LOCATION: us-east1
-  IMAGE_NAME: flask-app
-
 jobs:
 
-  # 🔧 BUILD
-  build:
+  # 🔧 BUILD + PUSH
+  build-and-push:
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.build.outputs.image }}
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set image tag
-      id: vars
-      run: echo "TAG=${GITHUB_SHA}" >> $GITHUB_OUTPUT
-
-    - name: Build image
-      id: build
-      run: |
-        IMAGE="$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:${{ steps.vars.outputs.TAG }}"
-        docker build -f docker/Dockerfile -t $IMAGE .
-        echo "image=$IMAGE" >> $GITHUB_OUTPUT
-
-  # 📦 PUSH
-  push:
-    runs-on: ubuntu-latest
-    needs: build
 
     steps:
     - uses: actions/checkout@v4
@@ -61,19 +22,24 @@ jobs:
       run: |
         gcloud auth configure-docker $GAR_LOCATION-docker.pkg.dev --quiet
 
-    - name: Push image
+    - name: Build image
+      id: build
       run: |
-        docker push ${{ needs.build.outputs.image }}
+        IMAGE="$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:$GITHUB_SHA"
 
-        docker tag ${{ needs.build.outputs.image }} \
-        $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
+        docker build -f docker/Dockerfile -t $IMAGE .
+        docker push $IMAGE
 
+        docker tag $IMAGE $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
         docker push $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
+
+        echo "image=$IMAGE" >> $GITHUB_OUTPUT
+
 
   # 🚀 DEPLOY
   deploy:
     runs-on: ubuntu-latest
-    needs: push
+    needs: build-and-push
 
     steps:
     - uses: actions/checkout@v4
@@ -104,9 +70,7 @@ jobs:
 
     - name: Deploy
       run: |
-        IMAGE="${{ needs.build.outputs.image }}"
-
-        echo "Deploying $IMAGE to ${{ steps.env.outputs.NAMESPACE }}"
+        IMAGE="${{ needs.build-and-push.outputs.image }}"
 
         sed -i "s|IMAGE_PLACEHOLDER|$IMAGE|g" k8s/deployment.yml
 
