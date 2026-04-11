@@ -1,9 +1,10 @@
-name: Build and Deploy to GKE
+name: CI/CD to GKE
 
 on:
   push:
     branches:
       - main
+      - staging
 
 permissions:
   contents: read
@@ -18,58 +19,97 @@ env:
   IMAGE_NAME: flask-app
 
 jobs:
-  deploy:
+
+  # 🔧 BUILD
+  build:
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.build.outputs.image }}
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Authenticate to Google Cloud
+    - name: Set image tag
+      id: vars
+      run: echo "TAG=${GITHUB_SHA}" >> $GITHUB_OUTPUT
+
+    - name: Build image
+      id: build
+      run: |
+        IMAGE="$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:${{ steps.vars.outputs.TAG }}"
+        docker build -f docker/Dockerfile -t $IMAGE .
+        echo "image=$IMAGE" >> $GITHUB_OUTPUT
+
+  # 📦 PUSH
+  push:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Auth GCP
       uses: google-github-actions/auth@v2
       with:
         workload_identity_provider: projects/863699223840/locations/global/workloadIdentityPools/github-pool/providers/github-provider
         service_account: github-cicd@flask-k8s-cicd-489601.iam.gserviceaccount.com
 
-    - name: Setup Cloud SDK
+    - name: Setup gcloud
       uses: google-github-actions/setup-gcloud@v2
 
-    - name: Install GKE auth plugin
-      run: |
-        gcloud components install gke-gcloud-auth-plugin --quiet
-
-    - name: Configure Docker authentication
+    - name: Configure Docker
       run: |
         gcloud auth configure-docker $GAR_LOCATION-docker.pkg.dev --quiet
 
-    # BUILD IMAGE
-    - name: Build Docker image
+    - name: Push image
       run: |
-       docker build -f docker/Dockerfile -t $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:$GITHUB_SHA .
-       docker tag $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:$GITHUB_SHA \
-       $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
+        docker push ${{ needs.build.outputs.image }}
 
-    # PUSH IMAGE
-    - name: Push Docker images
-      run: |
-        docker push $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:$GITHUB_SHA
+        docker tag ${{ needs.build.outputs.image }} \
+        $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
+
         docker push $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
 
-    - name: Get GKE credentials
+  # 🚀 DEPLOY
+  deploy:
+    runs-on: ubuntu-latest
+    needs: push
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Auth GCP
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: projects/863699223840/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+        service_account: github-cicd@flask-k8s-cicd-489601.iam.gserviceaccount.com
+
+    - name: Setup gcloud
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Get credentials
       run: |
         gcloud container clusters get-credentials $CLUSTER_NAME \
         --region $CLUSTER_LOCATION \
         --project $PROJECT_ID
 
-    # DEPLOY (PRO VERSION)
-    - name: Deploy to GKE
+    - name: Set environment
+      id: env
       run: |
-        IMAGE="$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:$GITHUB_SHA"
+        if [[ "${GITHUB_REF}" == "refs/heads/staging" ]]; then
+          echo "NAMESPACE=staging" >> $GITHUB_OUTPUT
+        else
+          echo "NAMESPACE=production" >> $GITHUB_OUTPUT
+        fi
 
-        echo "Using image: $IMAGE"
-        
+    - name: Deploy
+      run: |
+        IMAGE="${{ needs.build.outputs.image }}"
+
+        echo "Deploying $IMAGE to ${{ steps.env.outputs.NAMESPACE }}"
+
         sed -i "s|IMAGE_PLACEHOLDER|$IMAGE|g" k8s/deployment.yml
 
-        kubectl apply -f k8s/
+        kubectl apply -f k8s/ -n ${{ steps.env.outputs.NAMESPACE }}
 
-        kubectl rollout status deployment/$IMAGE_NAME
+        kubectl rollout status deployment/$IMAGE_NAME -n ${{ steps.env.outputs.NAMESPACE }}

@@ -1,6 +1,6 @@
 provider "google" {
   project = "flask-k8s-cicd-489601"
-  region  = "us-central1"
+  region  = "us-east1"
 }
 
 terraform {
